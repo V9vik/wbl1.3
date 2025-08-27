@@ -3,39 +3,52 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
+	"time"
 )
 
+const N = 5 // секунд работы программы
+
+func producer(ctx context.Context, out chan<- int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	defer close(out)
+
+	i := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case out <- i:
+			i++
+		}
+	}
+}
+
+func consumer(ctx context.Context, in <-chan int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case v, ok := <-in:
+			if !ok {
+				return
+			}
+			fmt.Println(v)
+		}
+	}
+}
+
 func main() {
-	in := make(chan int)
-	var worker int
-	fmt.Scan(&worker)
+	ctx, cancel := context.WithTimeout(context.Background(), N*time.Second)
+	defer cancel()
+
+	ch := make(chan int)
 	var wg sync.WaitGroup
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	wg.Add(2)
+	go producer(ctx, ch, &wg)
+	go consumer(ctx, ch, &wg)
 
-	for i := 0; i < worker; i++ {
-		wg.Add(1)
-		go func() {
-			for {
-				defer wg.Done()
-				select {
-				case <-ctx.Done():
-					return
-				case v, ok := <-in:
-					if !ok {
-						return
-					}
-					fmt.Println(v)
-				}
-
-			}
-		}()
-	}
 	wg.Wait()
-
 }
