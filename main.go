@@ -1,94 +1,65 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"runtime"
 	"sync"
 	"time"
 )
 
-func byCondition(done chan bool) {
-	go func() {
-		for {
-			select {
-			case <-done:
-				fmt.Println("Способ #1: остановка по условию")
-				return
-			default:
-				fmt.Println("Работаю...")
-				time.Sleep(time.Second)
-			}
-		}
-	}()
-	time.Sleep(3 * time.Second)
-	done <- true
+type NewMap struct {
+	mp  map[string]string
+	mut sync.RWMutex
 }
 
-func byChannel(stop chan struct{}) {
-	go func() {
-		for {
-			select {
-			case <-stop:
-				fmt.Println("Способ #2: остановка через канал")
-				return
-			default:
-				fmt.Println("Работаю...")
-				time.Sleep(time.Second)
-			}
-		}
-	}()
-	time.Sleep(3 * time.Second)
-	close(stop)
+func NewMapInit() *NewMap {
+	return &NewMap{mp: make(map[string]string)}
 }
 
-func byContext(ctx context.Context, cancel context.CancelFunc) {
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				fmt.Println("Способ #3: остановка через контекст")
-				return
-			default:
-				fmt.Println("Работаю...")
-				time.Sleep(time.Second)
-			}
-		}
-	}()
-	time.Sleep(3 * time.Second)
-	cancel()
+func (c *NewMap) Get(key string) (string, bool) {
+	c.mut.RLock()
+	result, ok := c.mp[key]
+	defer c.mut.RUnlock()
+	return result, ok
 }
 
-func byGoexit(wg *sync.WaitGroup) {
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for i := 0; ; i++ {
-			if i == 3 {
-				fmt.Println("Способ #4: остановка через runtime.Goexit()")
-				runtime.Goexit()
-			}
-			fmt.Println("Работаю...")
-			time.Sleep(time.Second)
-		}
-	}()
+func (c *NewMap) Set(key string, value string) {
+	c.mut.Lock()
+	c.mp[key] = value
+	defer c.mut.Unlock()
 }
 
 func main() {
+	m := NewMapInit()
 	var wg sync.WaitGroup
 
-	cond := make(chan bool)
-	byCondition(cond)
+	// 5 горутин пишут
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < 1000; j++ {
+				key := fmt.Sprintf("key-%d", j)
+				val := fmt.Sprintf("writer-%d", id)
+				m.Set(key, val)
+			}
+		}(i)
+	}
 
-	ch := make(chan struct{})
-	byChannel(ch)
+	// 5 горутин читают
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < 1000; j++ {
+				key := fmt.Sprintf("key-%d", j)
+				if val, ok := m.Get(key); ok {
+					_ = val
+				}
+			}
+		}(i)
+	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	byContext(ctx, cancel)
-
-	byGoexit(&wg)
-
-	time.Sleep(5 * time.Second)
 	wg.Wait()
-	fmt.Println("Все способы остановки продемонстрированы")
+	fmt.Println("done")
+	time.Sleep(100 * time.Millisecond)
 }
