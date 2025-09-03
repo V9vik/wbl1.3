@@ -1,65 +1,27 @@
 package main
 
-import (
-	"fmt"
-	"sync"
-	"time"
-)
+import "fmt"
 
-type NewMap struct {
-	mp  map[string]string
-	mut sync.RWMutex
-}
+func WriteBit(n int64, i uint, val bool) int64 {
+	if i >= 64 {
+		return n
+	}
 
-func NewMapInit() *NewMap {
-	return &NewMap{mp: make(map[string]string)}
-}
+	mask := int64(1 << i)
 
-func (c *NewMap) Get(key string) (string, bool) {
-	c.mut.RLock()
-	result, ok := c.mp[key]
-	defer c.mut.RUnlock()
-	return result, ok
-}
+	n &^= mask
 
-func (c *NewMap) Set(key string, value string) {
-	c.mut.Lock()
-	c.mp[key] = value
-	defer c.mut.Unlock()
+	if val == true {
+		n |= mask
+	}
+
+	return n
 }
 
 func main() {
-	m := NewMapInit()
-	var wg sync.WaitGroup
+	// ожидаем 5 (0101₂): из 4 (0100₂) включаем 0-й бит
+	fmt.Println(WriteBit(4, 0, true))
 
-	// 5 горутин пишут
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func(id int) {
-			defer wg.Done()
-			for j := 0; j < 1000; j++ {
-				key := fmt.Sprintf("key-%d", j)
-				val := fmt.Sprintf("writer-%d", id)
-				m.Set(key, val)
-			}
-		}(i)
-	}
-
-	// 5 горутин читают
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func(id int) {
-			defer wg.Done()
-			for j := 0; j < 1000; j++ {
-				key := fmt.Sprintf("key-%d", j)
-				if val, ok := m.Get(key); ok {
-					_ = val
-				}
-			}
-		}(i)
-	}
-
-	wg.Wait()
-	fmt.Println("done")
-	time.Sleep(100 * time.Millisecond)
+	// ожидаем 1 (0001₂): из 5 (0101₂) выключаем 2-й бит
+	fmt.Println(WriteBit(5, 2, false))
 }
