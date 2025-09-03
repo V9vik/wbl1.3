@@ -1,31 +1,25 @@
 package main
 
-import (
-	"fmt"
-	"math"
-	"sort"
-)
-
-func bucket(v float64) int {
-	return int(math.Trunc(v/10.0)) * 10
-}
+import "fmt"
 
 func main() {
-	vals := []float64{-25.4, -27.0, 13.0, 19.0, 15.5, 24.5, -21.0, 32.5}
-	groups := make(map[int][]float64)
+	mapForCheck := make(map[int]int)
+	A := []int{1, 2, 3}
+	B := []int{2, 3, 4}
 
-	for _, v := range vals {
-		k := bucket(v)
-		groups[k] = append(groups[k], v)
+	resultSlice := make([]int, 0, len(A))
+
+	for _, i := range A {
+		mapForCheck[i]++
 	}
 
-	keys := make([]int, 0, len(groups))
-	for k := range groups {
-		keys = append(keys, k)
+	for _, i := range B {
+		mapForCheck[i]++
 	}
-	sort.Ints(keys)
-
-	for _, k := range keys {
-		fmt.Printf("%d: %v\n", k, groups[k])
+	for num, c := range mapForCheck {
+		if c >= 2 {
+			resultSlice = append(resultSlice, num)
+		}
 	}
+	fmt.Print(resultSlice)
 }
