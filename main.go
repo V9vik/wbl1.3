@@ -2,29 +2,30 @@ package main
 
 import (
 	"fmt"
+	"math"
+	"sort"
 )
 
+func bucket(v float64) int {
+	return int(math.Trunc(v/10.0)) * 10
+}
+
 func main() {
-	xs := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
-	cha1 := make(chan int)
-	cha2 := make(chan int)
+	vals := []float64{-25.4, -27.0, 13.0, 19.0, 15.5, 24.5, -21.0, 32.5}
+	groups := make(map[int][]float64)
 
-	go func() {
-		for _, x := range xs {
-			cha1 <- x
-		}
-		defer close(cha1)
-	}()
-
-	go func() {
-		for x := range cha1 {
-			cha2 <- x * 2
-		}
-		defer close(cha2)
-	}()
-
-	for v := range cha2 {
-		fmt.Println(v)
+	for _, v := range vals {
+		k := bucket(v)
+		groups[k] = append(groups[k], v)
 	}
 
+	keys := make([]int, 0, len(groups))
+	for k := range groups {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+
+	for _, k := range keys {
+		fmt.Printf("%d: %v\n", k, groups[k])
+	}
 }
